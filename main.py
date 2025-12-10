@@ -1,83 +1,96 @@
-from typing import Dict, List, Tuple
+from typing import Dict, Any
 
-# Knowledge base
-# Each rule has: a name, an 'if' and a 'then'
+import streamlit as st
 
-Rule = Dict[str, Dict[str, int] | Dict[str, str] | str]
-
-
-RULES: List[Rule] = [
-    {
-        "name": "NotFound_404",
-        "if": {"status_code": 404},
-        "then": {"diagnosis": "Endpoint not found (wrong path or route)."},
-    },
-    {
-        "name": "ServerError_500",
-        "if": {"status_code": 500},
-        "then": {"diagnosis": "Internal server error (bug or failing dependency)."},
-    },
-    {
-        "name": "Unauthorized_401",
-        "if": {"status_code": 401},
-        "then": {"diagnosis": "Unauthorized request (missing or invalid auth)."},
-    },
-]
+from kb import RULES
+from engine import forward_chain
 
 
-# Inference engine (forward chaining, single pass)
-def forward_chain(facts: Dict[str, int | str], rules: List[Rule]) -> Tuple[Dict[str, int | str], List[str]]:
-    # small forward chaining: for each rile check all its 'if' conditions and match the current facts
-    # if they match, add the 'then' facts to the fact base and return the final facts and a list of fired rule names
-    fired: List[str] = []
+def main():
+    st.title("API Bug Diagnosis Assistant")
+    st.write(
+        "This is a system draft which will be expanded later with more rules and more facts that can influence the output."
+    )
 
-    for rule in rules:
-        conditions = rule["if"]
-        if all(facts.get(key) == value for key, value in conditions.items()):
-            then_part = rule["then"]
-            for key, value in then_part.items():
-                facts[key] = value
-            fired.append(rule["name"])
+    st.subheader("Request & Error Information")
 
-    return facts, fired
+    col1, col2 = st.columns(2)
 
+    with col1:
+        status_code = st.selectbox(
+            "HTTP status code",
+            options=[None, 400, 401, 403, 404, 415, 429, 500, 504],
+            format_func=lambda x: "Select..." if x is None else str(x),
+        )
 
-# For now our UI is in the console, later we are thinking of using streamlit
-def main() -> None:
-    print("API Bug Diagnosis Assistant")
-    print("This minimal prototype uses a few rules about HTTP status codes.\n")
+        method = st.selectbox(
+            "HTTP method",
+            options=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        )
 
-    status_input = input("Choose one HTTP status code (i.e. 401, 404, 500): ")
+    with col2:
+        has_auth_header = st.selectbox(
+            "Does the request include an Authorization header?",
+            options=["unknown", "yes", "no"]
+        )
 
-    try:
-        status_code = int(status_input)
-    except ValueError:
-        print("\nThis status code is not supported yet.")
-        return
+        client_type = st.selectbox(
+            "Client type",
+            options=["unknown", "public_api", "internal_service"]
+        )
 
-    # Initial facts
-    facts: Dict[str, int | str] = {"status_code": status_code}
+        error_keyword = st.selectbox(
+            "Main error keyword (simplified)",
+            options=["", "timeout", "json", "missing_field", "expired", "db_connection"],
+            index=0
+        )
 
-    # Run the inference step
-    final_facts, fired_rules = forward_chain(facts, RULES)
+    if st.button("Run diagnosis"):
+        facts: Dict[str, Any] = {
+            "method": method,
+        }
 
-    print("\n--- Facts after reasoning ---")
-    for key, value in final_facts.items():
-        print(f"{key}: {value}")
+        if status_code is not None:
+            facts["status_code"] = status_code
 
-    print("\n--- Result ---")
-    diagnosis = final_facts.get("diagnosis")
-    if diagnosis:
-        print("Diagnosis:", diagnosis)
-    else:
-        print("No diagnosis rule matched this status code.")
+        if has_auth_header in ("yes", "no"):
+            facts["has_auth_header"] = has_auth_header
 
-    print("\n--- Explanation (rules that fired) ---")
-    if fired_rules:
-        for name in fired_rules:
-            print("-", name)
-    else:
-        print("No rules were triggered.")
+        if client_type != "unknown":
+            facts["client_type"] = client_type
+
+        if error_keyword:
+            facts["error_keyword"] = error_keyword
+
+        st.subheader("Initial Facts")
+        st.json(facts)
+
+        final_facts, fired_rules = forward_chain(facts, RULES)
+
+        st.subheader("Facts After Reasoning")
+        st.json(final_facts)
+
+        diagnosis = final_facts.get("diagnosis")
+        recommendation = final_facts.get("recommendation")
+
+        st.subheader("Diagnosis")
+        if diagnosis:
+            st.success(diagnosis)
+        else:
+            st.warning("No diagnosis could be inferred with the current information.")
+
+        st.subheader("Recommendation")
+        if recommendation:
+            st.info(recommendation)
+        else:
+            st.write("No specific recommendation available.")
+
+        st.subheader("Rules Fired (Explanation)")
+        if fired_rules:
+            for name in fired_rules:
+                st.write(f"- {name}")
+        else:
+            st.write("No rules were triggered.")
 
 
 if __name__ == "__main__":
