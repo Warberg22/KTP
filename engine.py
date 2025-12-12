@@ -3,29 +3,29 @@ from kb import Rule
 
 
 def forward_chain(facts: Dict[str, Any], rules: List[Rule]) -> Tuple[Dict[str, Any], List[str]]:
-    # Forward chaining inference engine
-    # Scans rules repeatedly and fires rules whose IF part matches the current facts
-    # Adds/updates facts based on the THEN part
-    # Stops when no more rules can fire
     fired: List[str] = []
-    changed = True
 
-    while changed:
-        changed = False
-        for rule in rules:
-            if rule["name"] in fired:
-                continue
+    # Sort rules by specificity
+    sorted_rules = sorted(rules, key=lambda r: len(r["if"]), reverse=True)
 
-            conditions = rule["if"]
-            if all(facts.get(key) == value for key, value in conditions.items()):
-                then_part = rule["then"]
-                updated = False
-                for key, value in then_part.items():
-                    if facts.get(key) != value:
-                        facts[key] = value
-                        updated = True
-                fired.append(rule["name"])
-                if updated:
-                    changed = True
+    matched_specific = False
+
+    for rule in sorted_rules:
+        conditions = rule["if"]
+        if all(facts.get(key) == value for key, value in conditions.items()):
+            # Checks if it's a generic rule
+            is_generic = len(conditions) == 1 and "status_code" in conditions
+
+            if is_generic and matched_specific:
+                continue  # skip generic rule if a specific one already matched
+
+            for key, value in rule["then"].items():
+                facts[key] = value
+
+            fired.append(rule["name"])
+
+            if not is_generic:
+                matched_specific = True
 
     return facts, fired
+

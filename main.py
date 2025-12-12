@@ -40,8 +40,37 @@ def main():
         )
 
         error_keyword = st.selectbox(
-            "Main error keyword (simplified)",
-            options=["", "timeout", "json", "missing_field", "expired", "db_connection"],
+            "Main error keyword",
+            options=[
+                "",
+                "json",
+                "missing_field",
+                "type",
+                "validation",
+                "empty",
+                "size",
+                "query",
+                "expired",
+                "malformed",
+                "signature",
+                "revoked",
+                "api_key",
+                "scheme",
+                "role",
+                "scope",
+                "policy",
+                "ip",
+                "version",
+                "resource",
+                "slash",
+                "deprecated",
+                "null",
+                "config",
+                "timeout",
+                "db_connection",
+                "circuit",
+                "memory",
+            ],
             index=0
         )
 
@@ -85,12 +114,12 @@ def main():
         else:
             st.write("No specific recommendation available.")
 
-        st.subheader("Rules Fired (Explanation)")
+        st.subheader("Rules fired")
         if fired_rules:
             for name in fired_rules:
                 st.write(f"- {name}")
         else:
-            st.write("No rules were triggered.")
+            st.write("No rules were fired.")
 
 
 if __name__ == "__main__":
