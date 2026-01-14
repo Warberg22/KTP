@@ -4,28 +4,32 @@ from kb import Rule
 
 def forward_chain(facts: Dict[str, Any], rules: List[Rule]) -> Tuple[Dict[str, Any], List[str]]:
     fired: List[str] = []
+    changed = True
 
-    # Sort rules by specificity
+    # Sort rules by specificity (more conditions first)
     sorted_rules = sorted(rules, key=lambda r: len(r["if"]), reverse=True)
 
-    matched_specific = False
+    while changed:
+        changed = False
 
-    for rule in sorted_rules:
-        conditions = rule["if"]
-        if all(facts.get(key) == value for key, value in conditions.items()):
-            # Checks if it's a generic rule
-            is_generic = len(conditions) == 1 and "status_code" in conditions
+        for rule in sorted_rules:
+            if rule["name"] in fired:
+                continue
 
-            if is_generic and matched_specific:
-                continue  # skip generic rule if a specific one already matched
+            conditions = rule["if"]
 
-            for key, value in rule["then"].items():
-                facts[key] = value
+            if all(facts.get(key) == value for key, value in conditions.items()):
+                then_part = rule["then"]
+                updated = False
 
-            fired.append(rule["name"])
+                for key, value in then_part.items():
+                    if facts.get(key) != value:
+                        facts[key] = value
+                        updated = True
 
-            if not is_generic:
-                matched_specific = True
+                fired.append(rule["name"])
+
+                if updated:
+                    changed = True
 
     return facts, fired
-
