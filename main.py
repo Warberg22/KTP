@@ -1,4 +1,3 @@
-# main.py
 from typing import Dict, Any
 
 import streamlit as st
@@ -18,13 +17,15 @@ KEYWORDS_BY_STATUS: Dict[int, list[str]] = {
 
 STATUS_OPTIONS = [None, 400, 401, 403, 404, 405, 415, 429, 500, 502, 503, 504]
 
-METHOD_RELEVANT_STATUS_CODES = {405, 400, 403, 404}
 RELEVANT_METHOD_BY_STATUS_CODES: Dict[int, list[str]] = {
-    400: ["", "GET"],
-    403: ["", "DELETE"],
-    404: ["", "POST"],
-    405: ["", "GET", "POST", "PUT", "DELETE", "PATCH"],
+    400: ["", "GET", "POST", "PUT", "PATCH", "DELETE"],
+    403: ["", "GET", "POST", "PUT", "PATCH", "DELETE"],
+    404: ["", "GET", "POST", "PUT", "PATCH", "DELETE"],
+    405: ["", "GET", "POST", "PUT", "PATCH", "DELETE"],
+    415: ["", "POST", "PUT", "PATCH"],
+    429: ["", "GET", "POST", "PUT", "PATCH", "DELETE"],
 }
+
 
 def main() -> None:
     st.title("API Bug Diagnosis Assistant")
@@ -47,21 +48,18 @@ def main() -> None:
         facts["has_auth_header"] = st.selectbox(
             "Authorization header present?",
             options=["yes", "no"],
-            help="Used by rules that distinguish missing auth header from invalid credentials.",
         )
 
     if status_code in (403, 429):
         facts["client_type"] = st.selectbox(
             "Client type",
             options=["public_api", "internal_service"],
-            help="Used by rules that distinguish public API clients from internal services.",
         )
 
     keyword_options = KEYWORDS_BY_STATUS.get(status_code, [""])
     error_keyword = st.selectbox(
         "Main error keyword (optional)",
         options=keyword_options,
-        help="A simplified keyword extracted from the error message/logs.",
     )
     if error_keyword:
         facts["error_keyword"] = error_keyword
@@ -71,7 +69,6 @@ def main() -> None:
         method = st.selectbox(
             "HTTP method (optional)",
             options=method_options,
-            help="Only shown when method-dependent rules may apply for this status code.",
         )
         if method:
             facts["method"] = method
